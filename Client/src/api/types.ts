@@ -85,3 +85,63 @@ export interface CartResponse {
   subtotal_cents: number;
   has_unavailable_lines: boolean;
 }
+
+export type OrderStatus = "pending" | "paid" | "shipped" | "cancelled";
+
+export interface ShippingInput {
+  first_name: string;
+  last_name: string;
+  street: string;
+  city: string;
+  apartment?: string;
+  postal_code: string;
+  phone?: string;
+}
+
+export interface ShippingSnapshot {
+  first_name: string;
+  last_name: string;
+  street: string;
+  city: string;
+  apartment: string | null;
+  postal_code: string;
+  phone: string | null;
+}
+
+export interface OrderItemPublic {
+  order_item_id: number;
+  book_id: number | null;
+  title: string;
+  authors: string;
+  unit_price_cents: number;
+  quantity: number;
+  total_price_cents: number;
+}
+
+export interface OrderPublic {
+  order_id: number;
+  status: OrderStatus;
+  amount_cents: number;
+  order_date: string;
+  shipping: ShippingSnapshot;
+  items: OrderItemPublic[];
+}
+
+export interface OrderSummary {
+  order_id: number;
+  status: OrderStatus;
+  amount_cents: number;
+  item_count: number;
+  order_date: string;
+}
+
+export interface OrderListResponse {
+  items: OrderSummary[];
+  total: number;
+}
+
+export interface OrderListQuery {
+  status?: OrderStatus;
+  limit?: number;
+  offset?: number;
+}

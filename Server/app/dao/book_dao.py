@@ -41,7 +41,12 @@ _SORTS = {
 _DEFAULT_SORT = "newest"
 
 _FILTERS = {
-    "q":               "b.search_vector @@ websearch_to_tsquery('english', %s)",
+    "q":               "(b.search_vector @@ websearch_to_tsquery('english', %s)"
+                       " OR b.title ILIKE %s"
+                       " OR EXISTS (SELECT 1 FROM book_author ba"
+                       "            JOIN authors a USING (author_id)"
+                       "            WHERE ba.book_id = b.book_id"
+                       "              AND a.first_name || ' ' || a.last_name ILIKE %s))",
     "category_id":     "EXISTS (SELECT 1 FROM book_category bc "
                        "WHERE bc.book_id = b.book_id AND bc.category_id = %s)",
     "author_id":       "EXISTS (SELECT 1 FROM book_author ba "
@@ -50,6 +55,11 @@ _FILTERS = {
     "min_price_cents": "b.price_cents >= %s",
     "max_price_cents": "b.price_cents <= %s",
 }
+
+
+def _ilike_pattern(q: str) -> str:
+    escaped = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
 
 
 def _where(p: BookSearchParams, *, include_inactive: bool) -> tuple[str, list]:
@@ -62,7 +72,10 @@ def _where(p: BookSearchParams, *, include_inactive: bool) -> tuple[str, list]:
         value = getattr(p, field)
         if value is not None and value != "":
             where.append(sql)
-            args.append(value)
+            if field == "q":
+                args.extend([value, _ilike_pattern(value), _ilike_pattern(value)])
+            else:
+                args.append(value)
     return " AND ".join(where) or "TRUE", args
 
 

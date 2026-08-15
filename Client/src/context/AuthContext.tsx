@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import type { QueryClient } from "@tanstack/react-query";
 import { fetchMe } from "../api/auth";
 import { tokenStore } from "../api/client";
 import type { UserPublic } from "../api/types";
@@ -16,6 +17,15 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+// Catalog data is public; only user-scoped queries leave with the session.
+// Clearing everything made every mounted page flash back to skeletons.
+const PUBLIC_QUERY_KEYS = new Set(["books", "categories"]);
+
+const dropPrivateQueries = (queryClient: QueryClient) =>
+  queryClient.removeQueries({
+    predicate: (query) => !PUBLIC_QUERY_KEYS.has(String(query.queryKey[0])),
+  });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserPublic | null>(null);
@@ -42,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const onUnauthorized = () => {
       setUser(null);
       setStatus("anonymous");
-      queryClient.clear();
+      dropPrivateQueries(queryClient);
     };
     window.addEventListener("auth:unauthorized", onUnauthorized);
     return () => window.removeEventListener("auth:unauthorized", onUnauthorized);
@@ -63,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         tokenStore.clear();
         setUser(null);
         setStatus("anonymous");
-        queryClient.clear();
+        dropPrivateQueries(queryClient);
       },
     }),
     [user, status, queryClient],

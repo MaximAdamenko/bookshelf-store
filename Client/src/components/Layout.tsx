@@ -1,6 +1,8 @@
-import { Link, NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../hooks/useCart";
+
+const PROTECTED_PREFIXES = ["/cart", "/checkout", "/orders", "/admin"];
 
 function CartBadge() {
   const { data } = useCart();
@@ -20,6 +22,17 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
 
 export default function Layout() {
   const { user, status, isAdmin, logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Public pages keep their spot (URL untouched); protected pages go home
+  // directly instead of bouncing through /login.
+  const onLogout = () => {
+    logout();
+    if (PROTECTED_PREFIXES.some((p) => location.pathname.startsWith(p))) {
+      navigate("/", { replace: true });
+    }
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-stone-50 text-stone-900">
@@ -63,7 +76,7 @@ export default function Layout() {
               <>
                 <span className="text-sm text-stone-600">Hi, {user.first_name}</span>
                 <button
-                  onClick={logout}
+                  onClick={onLogout}
                   className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-100"
                 >
                   Log out
