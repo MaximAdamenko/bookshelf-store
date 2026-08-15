@@ -23,8 +23,8 @@ dist/
 *.local
 
 # ---- uploads (user content, not source) ----
-backend/uploads/*
-!backend/uploads/.gitkeep
+Server/uploads/*
+!Server/uploads/.gitkeep
 
 # ---- os / editor ----
 .DS_Store
