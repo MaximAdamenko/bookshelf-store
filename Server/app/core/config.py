@@ -1,9 +1,3 @@
-"""Application settings, loaded from the environment.
-
-Every secret comes from .env - nothing is hardcoded and nothing has a usable
-default. Missing required values raise at import time, so the app fails to start
-rather than running insecurely. See docs/SECURITY.md 5.11.
-"""
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -21,18 +15,14 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # ---------------------------------------------------------------- database
     database_url: str = Field(..., description="Owner URL: DDL. Used by init_db.py only.")
-    app_database_url: str = ""       # DML-only URL used by the running API
+    app_database_url: str = ""
 
-    # ------------------------------------------------------ first admin account
-    # Consumed by db/init_db.py only; the API never reads these.
     admin_email: str = ""
     admin_password: str = ""
     admin_first_name: str = "Admin"
     admin_last_name: str = "User"
 
-    # ---------------------------------------------------------------- security
     jwt_secret: str
     jwt_algorithm: Literal["HS256", "HS384", "HS512"] = "HS256"
     access_token_minutes: int = 60
@@ -46,7 +36,6 @@ class Settings(BaseSettings):
     lockout_minutes: int = 15
     password_min_length: int = 12
 
-    # -------------------------------------------------------------------- mail
     mail_backend: Literal["console", "gmail"] = "console"
     mail_from: str = ""
     gmail_user: str = ""
@@ -54,20 +43,16 @@ class Settings(BaseSettings):
     smtp_host: str = "smtp.gmail.com"
     smtp_port: int = 587
 
-    # ----------------------------------------------------------------- uploads
     upload_dir: str = "uploads"
     max_upload_bytes: int = 2 * 1024 * 1024
     max_image_pixels: int = 40_000_000
 
-    # --------------------------------------------------------------------- app
     env: Literal["dev", "staging", "production"] = "dev"
     cors_origins: str = "http://localhost:5173"
 
-    # ------------------------------------------------------------- validation
     @field_validator("jwt_secret")
     @classmethod
     def _secret_must_be_strong(cls, v: str) -> str:
-        # A short or placeholder secret makes every JWT forgeable. Refuse to boot.
         if len(v) < 32:
             raise ValueError("JWT_SECRET must be at least 32 characters")
         if v.lower() in {"changeme", "secret", "dev", "test"}:
@@ -81,11 +66,8 @@ class Settings(BaseSettings):
             raise ValueError("PASSWORD_MIN_LENGTH must be at least 12")
         return v
 
-    # ---------------------------------------------------------------- derived
     @property
     def runtime_database_url(self) -> str:
-        """The URL the API connects with. Falls back to the owner URL if the
-        restricted role has not been set up - see SECURITY.md 2.6."""
         return self.app_database_url or self.database_url
 
     @property

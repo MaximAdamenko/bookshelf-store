@@ -1,8 +1,3 @@
-"""Connection pool and transaction helpers.
-
-This module owns connections. It does NOT own queries - every statement in the
-application lives in app/dao/. See docs/SECURITY.md 2.1.
-"""
 import logging
 from collections.abc import Generator, Iterator
 from contextlib import contextmanager
@@ -19,7 +14,6 @@ _pool: ConnectionPool | None = None
 
 
 def init_pool() -> ConnectionPool:
-    """Create the pool. Called once on application startup."""
     global _pool
     if _pool is not None:
         return _pool
@@ -58,11 +52,6 @@ def get_pool() -> ConnectionPool:
 
 @contextmanager
 def transaction() -> Generator[Connection]:
-    """A connection inside a transaction: commits on success, rolls back on error.
-
-    Use this for anything that writes, and for multi-statement reads that must
-    see a consistent snapshot (checkout, for instance).
-    """
     with get_pool().connection() as conn:
         with conn.transaction():
             yield conn
@@ -70,15 +59,12 @@ def transaction() -> Generator[Connection]:
 
 @contextmanager
 def read_connection() -> Generator[Connection]:
-    """A connection for read-only work. Rolls back on exit so nothing lingers."""
     with get_pool().connection() as conn:
         try:
             yield conn
         finally:
             conn.rollback()
 
-
-# FastAPI dependencies -------------------------------------------------------
 
 def db_read() -> Iterator[Connection]:
     with read_connection() as conn:

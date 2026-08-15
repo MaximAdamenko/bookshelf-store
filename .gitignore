@@ -5,6 +5,8 @@
 *.pem
 *.key
 docs/
+.agents
+
 
 # ---- python ----
 __pycache__/
@@ -31,6 +33,7 @@ Server/uploads/*
 .idea/
 .vscode/
 *.swp
+
 
 # ---- venv ----
 Server/.venv/

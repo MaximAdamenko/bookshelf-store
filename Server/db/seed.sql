@@ -1,19 +1,10 @@
--- ============================================================================
---  Book Shelf - seed.sql
---  Sample catalog only. NO credentials live here: the admin account is created
---  by db/init_db.py, which argon2-hashes the password from .env first.
---  Run after schema.sql, against a freshly created schema.
--- ============================================================================
-
 BEGIN;
 
--- ----------------------------------------------------------------- categories
 INSERT INTO categories (name) VALUES
     ('Fiction'), ('Science Fiction'), ('Fantasy'), ('Dystopian'),
     ('Classics'), ('Non-fiction'), ('History'), ('Psychology'), ('Programming')
 ON CONFLICT (name) DO NOTHING;
 
--- -------------------------------------------------------------------- authors
 INSERT INTO authors (first_name, last_name) VALUES
     ('Frank', 'Herbert'),
     ('William', 'Gibson'),
@@ -35,7 +26,6 @@ INSERT INTO authors (first_name, last_name) VALUES
     ('Terry', 'Pratchett')
 ON CONFLICT (first_name, last_name) DO NOTHING;
 
--- ----------------------------------------------------------------- publishers
 INSERT INTO publishers (name) VALUES
     ('Ace Books'), ('HarperCollins'), ('Penguin Random House'), ('Bloomsbury'),
     ('Scribner'), ('Alfred A. Knopf'), ('Vintage'), ('Harper'),
@@ -43,9 +33,6 @@ INSERT INTO publishers (name) VALUES
     ('Addison-Wesley'), ('Gollancz')
 ON CONFLICT (name) DO NOTHING;
 
--- ---------------------------------------------------------------------- books
--- Staged in a temp table so authors/categories can be attached by name rather
--- than by hand-written IDs. Authors are "First|Last" pairs.
 CREATE TEMP TABLE seed_books (
     title       TEXT,
     description TEXT,
@@ -84,7 +71,6 @@ INSERT INTO seed_books VALUES
  ('The Great Gatsby',
   'Jay Gatsby throws lavish parties in pursuit of a green light across the bay.',
   1199, 0, 'Scribner', ARRAY['F. Scott|Fitzgerald'], ARRAY['Classics','Fiction']),
- -- ^ quantity 0 on purpose: exercises the out-of-stock path in the UI and checkout
 
  ('Beloved',
   'Sethe, an escaped slave, is haunted by the daughter she lost.',
@@ -113,7 +99,6 @@ INSERT INTO seed_books VALUES
  ('Good Omens',
   'An angel and a demon have grown rather fond of life on Earth and would prefer the apocalypse be cancelled.',
   1450, 13, 'Gollancz', ARRAY['Neil|Gaiman','Terry|Pratchett'], ARRAY['Fantasy','Fiction']),
- -- ^ two authors: exercises the book_author junction
 
  ('Clean Code',
   'A handbook of agile software craftsmanship.',
@@ -122,7 +107,6 @@ INSERT INTO seed_books VALUES
  ('The Pragmatic Programmer',
   'From journeyman to master - practical advice on the craft of writing software.',
   3899, 6, 'Addison-Wesley', ARRAY['Andrew|Hunt','David|Thomas'], ARRAY['Programming','Non-fiction']);
- -- ^ two authors as well
 
 INSERT INTO books (title, description, price_cents, quantity, publisher_id)
 SELECT s.title, s.description, s.price_cents, s.quantity, p.publisher_id

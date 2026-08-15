@@ -4,9 +4,7 @@
     python -m db.init_db            # schema + seed + admin + grants
     python -m db.init_db --no-seed  # schema only
 
-Run from the Server/ directory. Connects with DATABASE_URL (the OWNER role) -
-this is the only part of the system that runs DDL. The API itself connects with
-APP_DATABASE_URL, which gets DML privileges only. See docs/SECURITY.md 2.6.
+Run from the Server/ directory.
 
 DESTRUCTIVE: schema.sql drops and recreates every table.
 """
@@ -34,7 +32,6 @@ def _run_sql_file(conn: psycopg.Connection, path: Path) -> None:
 
 
 def _app_role_name(app_url: str) -> str | None:
-    """Extract the role from APP_DATABASE_URL so we can grant to it."""
     if not app_url:
         return None
     user = urlparse(app_url).username
@@ -42,8 +39,6 @@ def _app_role_name(app_url: str) -> str | None:
 
 
 def create_admin(conn: psycopg.Connection, settings) -> None:
-    """Create the first admin. The password is hashed here; it never reaches
-    the database, a log line, or seed.sql in plaintext."""
     from argon2 import PasswordHasher
 
     email = settings.admin_email.strip()
@@ -75,17 +70,11 @@ def create_admin(conn: psycopg.Connection, settings) -> None:
 
 
 def grant_app_role(conn: psycopg.Connection, role: str) -> None:
-    """Give the application role DML only - no DDL, no DROP, no ALTER.
-
-    Identifiers are composed with psycopg.sql.Identifier rather than string
-    formatting: even an admin-only maintenance script does not concatenate SQL.
-    """
     ident = sql.Identifier(role)
     statements = [
         sql.SQL("GRANT USAGE ON SCHEMA public TO {}").format(ident),
         sql.SQL("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO {}").format(ident),
         sql.SQL("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO {}").format(ident),
-        # future tables too, so a later migration cannot silently lock the app out
         sql.SQL("ALTER DEFAULT PRIVILEGES IN SCHEMA public "
                 "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {}").format(ident),
         sql.SQL("ALTER DEFAULT PRIVILEGES IN SCHEMA public "

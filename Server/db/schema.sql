@@ -1,13 +1,3 @@
--- ============================================================================
---  Book Shelf - schema.sql   ·   PostgreSQL 16
---  Derived from "Book Store.pdf" (ER diagram). See docs/DESIGN.md §4 for the
---  ER-to-relational mapping and why six things could not map literally.
---
---  Applied by the OWNER role via db/init_db.py. The running application
---  connects as a separate, DML-only role - see docs/SECURITY.md §2.6 and the
---  grant_app_role() step in init_db.py.
--- ============================================================================
-
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS citext;
@@ -22,29 +12,25 @@ CREATE TYPE order_status  AS ENUM ('pending', 'paid', 'shipped', 'cancelled');
 CREATE TYPE token_purpose AS ENUM ('login_otp', 'reset_password');
 
 
--- ---------------------------------------------------------------------- users
 CREATE TABLE users (
     user_id        BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    email          CITEXT      NOT NULL UNIQUE,   -- case-insensitive: no duplicate accounts
+    email          CITEXT      NOT NULL UNIQUE,
     password_hash  TEXT        NOT NULL,
     first_name     TEXT        NOT NULL CHECK (length(first_name) BETWEEN 1 AND 60),
     last_name      TEXT        NOT NULL CHECK (length(last_name)  BETWEEN 1 AND 60),
     birth_date     DATE        CHECK (birth_date BETWEEN DATE '1900-01-01' AND DATE '2015-01-01'),
     phone          TEXT        CHECK (phone ~ '^\+?[0-9 \-]{6,20}$'),
-    role           user_role   NOT NULL DEFAULT 'customer',  -- the default is the SAFE role
+    role           user_role   NOT NULL DEFAULT 'customer',
     is_active      BOOLEAN     NOT NULL DEFAULT TRUE,
     email_verified BOOLEAN     NOT NULL DEFAULT FALSE,
     failed_logins  SMALLINT    NOT NULL DEFAULT 0,
     locked_until   TIMESTAMPTZ,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
--- NOTE: "birth_date not in the future" cannot live here - PostgreSQL rejects
--- non-IMMUTABLE functions (CURRENT_DATE) in CHECK constraints. Enforced in Pydantic.
+-- birth_date can't be checked against CURRENT_DATE here: Postgres rejects
+-- non-IMMUTABLE functions in CHECK. Pydantic enforces it.
 
 
--- ------------------------------------------------------------------ addresses
--- ER: User 1 -has a- n address. In SQL the FK lives on the CHILD; the diagram's
--- multivalued User.address_ID cannot be a column. See DESIGN.md §4.
 CREATE TABLE addresses (
     address_id  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id     BIGINT  NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
@@ -59,31 +45,27 @@ CREATE INDEX        addresses_user_idx    ON addresses (user_id);
 CREATE UNIQUE INDEX addresses_one_default ON addresses (user_id) WHERE is_default;
 
 
--- --------------------------------------------------------------- email_tokens
--- Deliberately NOT unique on token_hash: a 6-digit OTP has only 1e6 possible
--- values, so two users can legitimately hold the same code at the same time.
--- A unique index would turn that collision into a 500 on login.
+-- token_hash is deliberately not UNIQUE: a 6-digit OTP has only 1e6 possible
+-- values, so two users can hold the same code at once. A unique index would
+-- turn that collision into a 500 on login.
 CREATE TABLE email_tokens (
     token_id   BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id    BIGINT        NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    token_hash TEXT          NOT NULL,   -- sha256(user_id || ':' || code); raw code never stored
+    token_hash TEXT          NOT NULL,
     purpose    token_purpose NOT NULL,
     attempts   SMALLINT      NOT NULL DEFAULT 0 CHECK (attempts <= 5),
     expires_at TIMESTAMPTZ   NOT NULL,
-    used_at    TIMESTAMPTZ,              -- single use
+    used_at    TIMESTAMPTZ,
     created_at TIMESTAMPTZ   NOT NULL DEFAULT now()
 );
 CREATE INDEX email_tokens_open_idx ON email_tokens (user_id, purpose) WHERE used_at IS NULL;
 CREATE INDEX email_tokens_hash_idx ON email_tokens (token_hash);
 
 
--- ----------------------------------------------- lookups: publishers / authors / categories
 CREATE TABLE publishers (
     publisher_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name         TEXT NOT NULL UNIQUE CHECK (length(name) BETWEEN 1 AND 150)
 );
--- The ER diagram split publisher name into Sname/Lname. Publishers are companies,
--- not people, so this is a single column.
 
 CREATE TABLE authors (
     author_id  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -98,17 +80,16 @@ CREATE TABLE categories (
 );
 
 
--- ---------------------------------------------------------------------- books
 CREATE TABLE books (
     book_id      BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     title        TEXT    NOT NULL CHECK (length(title) BETWEEN 1 AND 300),
     description  TEXT    NOT NULL DEFAULT '',
-    price_cents  INTEGER NOT NULL CHECK (price_cents >= 0),        -- integer cents, never float
-    quantity     INTEGER NOT NULL DEFAULT 0 CHECK (quantity >= 0), -- the DB itself refuses an oversell
+    price_cents  INTEGER NOT NULL CHECK (price_cents >= 0),
+    quantity     INTEGER NOT NULL DEFAULT 0 CHECK (quantity >= 0),
     publisher_id BIGINT  REFERENCES publishers(publisher_id) ON DELETE SET NULL,
+    -- Only a server-generated UUID filename passes, so path traversal is
+    -- impossible even if the upload handler is wrong.
     cover_path   TEXT    CHECK (cover_path ~ '^[0-9a-f]{32}\.(jpg|png|webp)$'),
-        -- The DB rejects any filename that is not a server-generated UUID, so path
-        -- traversal is impossible even if the upload handler is wrong. SECURITY.md §4.4
     is_active    BOOLEAN NOT NULL DEFAULT TRUE,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -117,13 +98,10 @@ CREATE TABLE books (
         setweight(to_tsvector('english', coalesce(description, '')), 'D')
     ) STORED
 );
--- A generated column can only reference its own row, so author names are not in the
--- tsvector now that authors are a separate table. Author search is a JOIN in book_dao.
 CREATE INDEX books_search_idx ON books USING GIN (search_vector);
 CREATE INDEX books_active_idx ON books (created_at DESC) WHERE is_active;
 
 
--- ------------------------------------- junction tables (the diagram's double-oval FKs)
 CREATE TABLE book_author (
     book_id   BIGINT NOT NULL REFERENCES books(book_id)     ON DELETE CASCADE,
     author_id BIGINT NOT NULL REFERENCES authors(author_id) ON DELETE RESTRICT,
@@ -139,7 +117,6 @@ CREATE TABLE book_category (
 CREATE INDEX book_category_category_idx ON book_category (category_id);
 
 
--- ----------------------------------------------------------------- cart_items
 CREATE TABLE cart_items (
     cart_item_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id      BIGINT  NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
@@ -150,14 +127,13 @@ CREATE TABLE cart_items (
 );
 
 
--- --------------------------------------------------------------------- orders
 CREATE TABLE orders (
     order_id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id          BIGINT       NOT NULL REFERENCES users(user_id) ON DELETE RESTRICT,
     status           order_status NOT NULL DEFAULT 'pending',
-    amount_cents     INTEGER      NOT NULL CHECK (amount_cents >= 0),  -- computed server-side
-    -- Shipping address is a SNAPSHOT, not a FK to addresses: editing a saved
-    -- address must never rewrite where a past order was sent.
+    amount_cents     INTEGER      NOT NULL CHECK (amount_cents >= 0),
+    -- Shipping is a snapshot, not a FK to addresses: editing a saved address
+    -- must never rewrite where a past order was sent.
     ship_first_name  TEXT NOT NULL,
     ship_last_name   TEXT NOT NULL,
     ship_street      TEXT NOT NULL,
@@ -170,25 +146,20 @@ CREATE TABLE orders (
 CREATE INDEX orders_user_idx ON orders (user_id, order_date DESC);
 
 
--- ---------------------------------------------------------------- order_items
--- The ER diagram put OI_ID on Order. In a 1:n the FK belongs on the CHILD,
--- otherwise an order could only ever hold a single line item.
 CREATE TABLE order_items (
     order_item_id     BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     order_id          BIGINT  NOT NULL REFERENCES orders(order_id) ON DELETE CASCADE,
     book_id           BIGINT  REFERENCES books(book_id) ON DELETE SET NULL,
-    title_snapshot    TEXT    NOT NULL,  -- survives catalog edits AND deletion of the book
+    title_snapshot    TEXT    NOT NULL,
     authors_snapshot  TEXT    NOT NULL DEFAULT '',
     unit_price_cents  INTEGER NOT NULL CHECK (unit_price_cents >= 0),
     quantity          INTEGER NOT NULL CHECK (quantity > 0),
     total_price_cents INTEGER GENERATED ALWAYS AS (unit_price_cents * quantity) STORED,
-        -- the diagram's total_Price, kept - but DERIVED, so it can never disagree
     UNIQUE (order_id, book_id)
 );
 CREATE INDEX order_items_order_idx ON order_items (order_id);
 
 
--- ------------------------------------------------------------ updated_at trigger
 CREATE OR REPLACE FUNCTION touch_updated_at() RETURNS trigger AS $$
 BEGIN
     NEW.updated_at = now();
