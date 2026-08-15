@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from app.core.config import get_settings
 from app.core.db import close_pool, get_pool, init_pool
 from app.dao.book_dao import UnknownIdError
-from app.routers import admin_books, auth, books
+from app.routers import admin_books, auth, books, cart
 
 logging.basicConfig(
     level=logging.INFO,
@@ -81,6 +81,7 @@ async def _unknown_id(request: Request, exc: UnknownIdError):
 app.include_router(auth.router)
 app.include_router(books.router)
 app.include_router(books.media_router)
+app.include_router(cart.router)
 app.include_router(admin_books.router)
 
 
