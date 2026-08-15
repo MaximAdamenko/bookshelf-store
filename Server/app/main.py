@@ -81,6 +81,7 @@ async def _unknown_id(request: Request, exc: UnknownIdError):
 app.include_router(auth.router)
 app.include_router(books.router)
 app.include_router(books.media_router)
+app.include_router(books.categories_router)
 app.include_router(cart.router)
 app.include_router(orders.router)
 app.include_router(admin_books.router)

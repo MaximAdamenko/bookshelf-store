@@ -7,7 +7,7 @@ from psycopg import Connection
 from app.core.config import get_settings
 from app.core.db import db_read
 from app.dao import book_dao
-from app.schemas.books import BookListResponse, BookPublic, BookSearchParams
+from app.schemas.books import BookListResponse, BookPublic, BookSearchParams, CategoryRef
 from app.services.storage import LocalDiskStorage
 
 router = APIRouter(prefix="/books", tags=["catalog"])
@@ -47,3 +47,11 @@ def get_book(book_id: int, conn: Annotated[Connection, Depends(db_read)]):
     if book is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
     return book
+
+
+categories_router = APIRouter(prefix="/categories", tags=["catalog"])
+
+
+@categories_router.get("", response_model=list[CategoryRef])
+def list_categories(conn: Annotated[Connection, Depends(db_read)]):
+    return book_dao.list_categories(conn)

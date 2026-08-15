@@ -276,3 +276,9 @@ def restock_order(conn: Connection, order_id: int) -> None:
             "UPDATE books SET quantity = quantity + %s WHERE book_id = %s",
             [(r["quantity"], r["book_id"]) for r in rows],
         )
+
+
+def list_categories(conn: Connection) -> list[dict]:
+    with conn.cursor() as cur:
+        cur.execute("SELECT category_id, name FROM categories ORDER BY name")
+        return cur.fetchall()
