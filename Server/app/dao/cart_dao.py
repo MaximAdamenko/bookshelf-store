@@ -105,3 +105,13 @@ def remove_item(conn: Connection, user_id: int, cart_item_id: int) -> bool:
             (cart_item_id, user_id),
         )
         return cur.fetchone() is not None
+
+
+def clear_items(conn: Connection, user_id: int, cart_item_ids: list[int]) -> None:
+    # Only the charged lines: a line added from another tab mid-checkout
+    # survives.
+    with conn.cursor() as cur:
+        cur.execute(
+            "DELETE FROM cart_items WHERE user_id = %s AND cart_item_id = ANY(%s)",
+            (user_id, cart_item_ids),
+        )

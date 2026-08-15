@@ -232,3 +232,47 @@ def lock_books(conn: Connection, book_ids: list[int]) -> list[dict]:
             (sorted(set(book_ids)),),
         )
         return cur.fetchall()
+
+
+def author_names(conn: Connection, book_ids: list[int]) -> dict[int, str]:
+    with conn.cursor() as cur:
+        cur.execute(
+            """SELECT ba.book_id,
+                      string_agg(a.first_name || ' ' || a.last_name, ', '
+                                 ORDER BY a.author_id) AS names
+                 FROM book_author ba JOIN authors a USING (author_id)
+                WHERE ba.book_id = ANY(%s)
+                GROUP BY ba.book_id""",
+            (book_ids,),
+        )
+        return {r["book_id"]: r["names"] for r in cur.fetchall()}
+
+
+def decrement_stock(conn: Connection, amounts: list[tuple[int, int]]) -> None:
+    """(book_id, quantity) pairs; rows already held by lock_books.
+    CHECK (quantity >= 0) is the backstop if a caller ever forgets."""
+    with conn.cursor() as cur:
+        cur.executemany(
+            "UPDATE books SET quantity = quantity - %s WHERE book_id = %s",
+            [(qty, book_id) for book_id, qty in amounts],
+        )
+
+
+def restock_order(conn: Connection, order_id: int) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """SELECT book_id, quantity FROM order_items
+                WHERE order_id = %s AND book_id IS NOT NULL""",
+            (order_id,),
+        )
+        rows = cur.fetchall()
+    if not rows:
+        return
+    # Same canonical lock order as checkout, so cancel and a concurrent
+    # checkout can't deadlock.
+    lock_books(conn, [r["book_id"] for r in rows])
+    with conn.cursor() as cur:
+        cur.executemany(
+            "UPDATE books SET quantity = quantity + %s WHERE book_id = %s",
+            [(r["quantity"], r["book_id"]) for r in rows],
+        )
