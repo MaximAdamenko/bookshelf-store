@@ -264,6 +264,15 @@ docker compose exec -T frontend nginx -s reload
 Deleting the placeholder does not interrupt the running nginx — it holds the loaded
 certificate in memory until reload.
 
+**Do not browse the site between `up -d` and the reload in step 3.** The placeholder is
+self-signed, so a browser that visits in that window shows the "connection is not private"
+interstitial; clicking through caches a per-origin certificate exception that survives a
+hard reload and persists for the whole browser session. The site then keeps reporting
+"Not secure" long after a valid certificate is live, and the only fix is quitting the
+browser entirely. `curl` never reproduces it — it has no such cache — so this looks like a
+server fault while every server-side check passes. Confirm with a private window: if that
+shows the padlock, it is the cached exception and nothing else.
+
 ### Renewal
 
 The `certbot` service loops `certbot renew` every 12 h; the frontend container reloads
