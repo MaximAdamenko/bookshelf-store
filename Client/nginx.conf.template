@@ -45,6 +45,9 @@ server {
 
     location /assets/ {
         expires 1y;
+        # add_header is inherited all-or-nothing: declaring any here discards
+        # every server-level one, so HSTS has to be repeated.
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
         add_header Cache-Control "public, immutable";
     }
 
