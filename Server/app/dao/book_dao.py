@@ -306,6 +306,25 @@ def list_authors(conn: Connection) -> list[dict]:
         return cur.fetchall()
 
 
+def create_author(conn: Connection, *, first_name: str, last_name: str) -> tuple[dict, bool]:
+    with conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO authors (first_name, last_name) VALUES (%s, %s) "
+            "ON CONFLICT (first_name, last_name) DO NOTHING "
+            "RETURNING author_id, first_name || ' ' || last_name AS name",
+            (first_name, last_name),
+        )
+        row = cur.fetchone()
+        if row is not None:
+            return row, True
+        cur.execute(
+            "SELECT author_id, first_name || ' ' || last_name AS name "
+            "FROM authors WHERE first_name = %s AND last_name = %s",
+            (first_name, last_name),
+        )
+        return cur.fetchone(), False
+
+
 def list_publishers(conn: Connection) -> list[dict]:
     with conn.cursor() as cur:
         cur.execute("SELECT publisher_id, name FROM publishers ORDER BY name")

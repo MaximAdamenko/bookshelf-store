@@ -3,7 +3,7 @@ import time
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from psycopg import Connection
 
 from app.core.config import get_settings
@@ -55,6 +55,27 @@ def _invalid_credentials() -> HTTPException:
     return HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
 
+# Sending happens after the response, never inside it. With MAIL_BACKEND=gmail a
+# send is a full SMTP round trip — far larger and more variable than the timing
+# floor above, and it only occurs on the branch where the account exists. Left
+# inline it would reopen the enumeration gap the floor exists to close.
+# (SECURITY.md 5.6)
+def _send_login_code_safely(email: str, code: str, user_id: int) -> None:
+    try:
+        send_login_code(email, code)
+    except Exception:
+        # Logged, never surfaced. A 503 here would mean "we tried to email you",
+        # which tells a prober the account exists.
+        log.exception("could not send the login code for user_id=%s", user_id)
+
+
+def _send_reset_token_safely(email: str, token: str, user_id: int) -> None:
+    try:
+        send_reset_token(email, token)
+    except Exception:
+        log.exception("could not send the reset email for user_id=%s", user_id)
+
+
 def _is_locked(record: dict) -> bool:
     locked_until = record["locked_until"]
     return locked_until is not None and locked_until > datetime.now(UTC)
@@ -82,7 +103,7 @@ def me(user: CurrentUser):
 
 
 @router.post("/login", response_model=ChallengeResponse, dependencies=[Depends(_login_limit)])
-def login(payload: LoginRequest):
+def login(payload: LoginRequest, background: BackgroundTasks):
     settings = get_settings()
 
     with read_connection() as conn:
@@ -103,6 +124,12 @@ def login(payload: LoginRequest):
                     max_failed=settings.max_failed_logins,
                     lockout_minutes=settings.lockout_minutes,
                 )
+        else:
+            # Matches the round trip above. Both branches answer 401, so an
+            # unknown email must cost the same as a known one with a wrong
+            # password. (SECURITY.md 5.6)
+            with transaction() as conn:
+                conn.execute("SELECT 1")
         raise _invalid_credentials()
 
     code = new_otp_code()
@@ -118,13 +145,7 @@ def login(payload: LoginRequest):
         )
         user_dao.clear_failed_logins(conn, record["user_id"])
 
-    try:
-        send_login_code(record["email"], code)
-    except Exception:
-        # Logged, never surfaced. A 503 here would mean "we tried to send you
-        # mail", which tells a prober the account exists — the exact leak the
-        # 401 above exists to prevent.
-        log.exception("could not send the login code for user_id=%s", record["user_id"])
+    background.add_task(_send_login_code_safely, record["email"], code, record["user_id"])
 
     return ChallengeResponse(
         challenge_token=create_token(
@@ -184,7 +205,7 @@ def login_verify(payload: VerifyRequest):
 
 @router.post("/forgot", response_model=ForgotResponse, status_code=status.HTTP_202_ACCEPTED,
              dependencies=[Depends(_forgot_limit)])
-def forgot(payload: ForgotRequest):
+def forgot(payload: ForgotRequest, background: BackgroundTasks):
     settings = get_settings()
     started = time.monotonic()
 
@@ -202,10 +223,9 @@ def forgot(payload: ForgotRequest):
                 purpose="reset_password",
                 ttl_minutes=settings.reset_token_ttl_minutes,
             )
-        try:
-            send_reset_token(record["email"], token)
-        except Exception:
-            log.exception("could not send the reset email for user_id=%s", record["user_id"])
+        background.add_task(
+            _send_reset_token_safely, record["email"], token, record["user_id"]
+        )
     else:
         # Matches the found branch's two round trips (invalidate + issue).
         # A remote DB's network RTT is bigger than the timing floor below, so

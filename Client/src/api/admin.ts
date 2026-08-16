@@ -3,6 +3,8 @@ import type {
   AdminOrderListResponse,
   AdminOrderSummary,
   AdminOrderTarget,
+  AuthorCreateInput,
+  AuthorRef,
   BookCreateInput,
   BookListResponse,
   BookPatchInput,
@@ -30,6 +32,9 @@ export const uploadCover = (bookId: number, file: File) => {
   form.append("file", file);
   return api<BookPublic>(`/admin/books/${bookId}/cover`, { method: "POST", body: form });
 };
+
+export const createAuthor = (input: AuthorCreateInput) =>
+  api<AuthorRef>("/admin/authors", { method: "POST", body: input });
 
 export const adminFetchOrders = (query: OrderListQuery) =>
   api<AdminOrderListResponse>(`/admin/orders${toQueryString(query)}`);

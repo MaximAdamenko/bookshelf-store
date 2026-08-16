@@ -3,6 +3,7 @@ import {
   adminFetchBook,
   adminFetchBooks,
   adminFetchOrders,
+  createAuthor,
   createBook,
   deleteBook,
   patchBook,
@@ -55,6 +56,14 @@ export function useUploadCover() {
   return useMutation({
     mutationFn: ({ bookId, file }: { bookId: number; file: File }) => uploadCover(bookId, file),
     onSuccess: useInvalidateBooks(),
+  });
+}
+
+export function useCreateAuthor() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createAuthor,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["authors"] }),
   });
 }
 

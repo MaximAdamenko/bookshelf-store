@@ -2,7 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 SERVER_DIR = Path(__file__).resolve().parents[2]
@@ -65,6 +65,18 @@ class Settings(BaseSettings):
         if v < 12:
             raise ValueError("PASSWORD_MIN_LENGTH must be at least 12")
         return v
+
+    # Refuses at boot rather than serving with a wide-open allowlist, same
+    # posture as the JWT_SECRET check above. (SECURITY.md 6)
+    @model_validator(mode="after")
+    def _cors_locked_down_in_prod(self) -> "Settings":
+        if self.env == "production":
+            origins = self.cors_origin_list
+            if not origins or "*" in origins:
+                raise ValueError("CORS_ORIGINS must name explicit origins in production")
+            if any(o.startswith("http://") for o in origins):
+                raise ValueError("CORS_ORIGINS must be https:// in production")
+        return self
 
     @property
     def runtime_database_url(self) -> str:

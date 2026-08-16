@@ -28,6 +28,11 @@ export interface AuthorRef {
   name: string;
 }
 
+export interface AuthorCreateInput {
+  first_name: string;
+  last_name: string;
+}
+
 export interface CategoryRef {
   category_id: number;
   name: string;

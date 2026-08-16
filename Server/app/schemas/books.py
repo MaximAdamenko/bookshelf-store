@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, StringConstraints, model_validator
 
 from app.schemas.auth import InputModel
 
@@ -45,6 +45,15 @@ class BookPatch(InputModel):
     author_ids: list[int] | None = Field(None, min_length=1, max_length=10)
     category_ids: list[int] | None = Field(None, min_length=1, max_length=10)
     publisher_id: int | None = Field(None, ge=1)
+
+
+# bounds mirror the DB CHECK (length BETWEEN 1 AND 60) exactly
+AuthorName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60)]
+
+
+class AuthorCreate(InputModel):
+    first_name: AuthorName
+    last_name: AuthorName
 
 
 class AuthorRef(BaseModel):

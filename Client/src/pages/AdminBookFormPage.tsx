@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import type { ChangeEvent, FormEvent } from "react";
+import type { ChangeEvent, FormEvent, KeyboardEvent } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../api/client";
 import type { BookCreateInput, BookPublic } from "../api/types";
 import CoverImage from "../components/CoverImage";
 import { Field, FormError, TextAreaField } from "../components/form";
-import { useAdminBook, useCreateBook, usePatchBook, useUploadCover } from "../hooks/useAdmin";
+import {
+  useAdminBook,
+  useCreateAuthor,
+  useCreateBook,
+  usePatchBook,
+  useUploadCover,
+} from "../hooks/useAdmin";
 import { useAuthors, useCategories, usePublishers } from "../hooks/useBooks";
 import NotFoundPage from "./NotFoundPage";
 
@@ -58,6 +64,75 @@ function RefPicker({
         })}
       </div>
       <p className="mt-1 text-xs text-stone-500">Pick 1–10.</p>
+    </div>
+  );
+}
+
+function AddAuthorInline({ onAdded }: { onAdded: (id: number) => void }) {
+  const create = useCreateAuthor();
+  const [first, setFirst] = useState("");
+  const [last, setLast] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async () => {
+    setError(null);
+    if (!first.trim() || !last.trim()) {
+      setError("First and last name are both required.");
+      return;
+    }
+    try {
+      const author = await create.mutateAsync({
+        first_name: first.trim(),
+        last_name: last.trim(),
+      });
+      onAdded(author.author_id);
+      setFirst("");
+      setLast("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not add author");
+    }
+  };
+
+  // Enter must not reach the book form: these inputs sit inside it
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      submit();
+    }
+  };
+
+  const input =
+    "w-36 rounded-md border border-stone-300 bg-white px-2.5 py-1 text-sm text-stone-900 focus:border-amber-500 focus:outline-none";
+
+  return (
+    <div className="mt-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={first}
+          onChange={(e) => setFirst(e.target.value)}
+          onKeyDown={onKeyDown}
+          placeholder="First name"
+          maxLength={60}
+          className={input}
+        />
+        <input
+          value={last}
+          onChange={(e) => setLast(e.target.value)}
+          onKeyDown={onKeyDown}
+          placeholder="Last name"
+          maxLength={60}
+          className={input}
+        />
+        <button
+          type="button"
+          onClick={submit}
+          disabled={create.isPending}
+          className="rounded-md border border-stone-300 px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-50"
+        >
+          {create.isPending ? "Adding…" : "+ Add author"}
+        </button>
+      </div>
+      {error && <p className="mt-1 text-xs text-red-700">{error}</p>}
     </div>
   );
 }
@@ -234,12 +309,17 @@ function BookForm({ book }: { book?: BookPublic }) {
             ))}
           </select>
         </div>
-        <RefPicker
-          label="Authors"
-          options={(authors ?? []).map((a) => ({ id: a.author_id, name: a.name }))}
-          selected={authorIds}
-          onToggle={toggle(authorIds, setAuthorIds)}
-        />
+        <div>
+          <RefPicker
+            label="Authors"
+            options={(authors ?? []).map((a) => ({ id: a.author_id, name: a.name }))}
+            selected={authorIds}
+            onToggle={toggle(authorIds, setAuthorIds)}
+          />
+          <AddAuthorInline
+            onAdded={(id) => setAuthorIds((prev) => (prev.includes(id) ? prev : [...prev, id]))}
+          />
+        </div>
         <RefPicker
           label="Categories"
           options={(categories ?? []).map((c) => ({ id: c.category_id, name: c.name }))}

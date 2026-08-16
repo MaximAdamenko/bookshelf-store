@@ -6,10 +6,11 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.core.bodylimit import BodySizeLimit
 from app.core.config import get_settings
 from app.core.db import close_pool, get_pool, init_pool
 from app.dao.book_dao import UnknownIdError
-from app.routers import admin_books, admin_orders, auth, books, cart, orders
+from app.routers import admin_books, admin_orders, admin_refs, auth, books, cart, orders
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,6 +37,14 @@ app = FastAPI(
     docs_url=None if _is_prod else "/docs",
     openapi_url=None if _is_prod else "/openapi.json",
     redoc_url=None,
+)
+
+# Added before CORS so it ends up inside it: a 413 still travels back out through
+# the CORS and security-header layers instead of reaching the browser bare.
+app.add_middleware(
+    BodySizeLimit,
+    json_limit=64 * 1024,
+    upload_limit=settings.max_upload_bytes + 64 * 1024,  # slack for multipart framing
 )
 
 app.add_middleware(
@@ -87,6 +96,7 @@ app.include_router(cart.router)
 app.include_router(orders.router)
 app.include_router(admin_books.router)
 app.include_router(admin_orders.router)
+app.include_router(admin_refs.router)
 
 
 @app.get("/health", tags=["meta"])
