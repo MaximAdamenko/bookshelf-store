@@ -109,6 +109,43 @@ would be self-defeating when the whole point is that the IP changes.
 
 ## 2. Instance side
 
+### Container host prerequisites (Amazon Linux 2023)
+
+`docker` from the AL2023 repos ships neither the compose v2 plugin nor a buildx new
+enough for it — compose v5 refuses to build against buildx < 0.17.0, and AL2023 ships
+0.12.1 with no packaged upgrade. Both go in by hand, into
+`/usr/local/lib/docker/cli-plugins/`, which takes precedence over `/usr/libexec`.
+
+```bash
+sudo dnf install -y docker git
+sudo mkdir -p /usr/local/lib/docker/cli-plugins
+
+sudo curl -fsSL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
+  -o /usr/local/lib/docker/cli-plugins/docker-compose
+
+BX=$(curl -fsSL https://api.github.com/repos/docker/buildx/releases/latest | jq -r .tag_name)
+sudo curl -fsSL "https://github.com/docker/buildx/releases/download/${BX}/buildx-${BX}.linux-amd64" \
+  -o /usr/local/lib/docker/cli-plugins/docker-buildx
+
+sudo chmod 0755 /usr/local/lib/docker/cli-plugins/*
+sudo systemctl enable --now docker
+sudo usermod -aG docker ec2-user      # log out and back in
+```
+
+The two gitignored files do not arrive via `git clone` and must be copied separately —
+and `scp` does not preserve mode, so fix it on arrival:
+
+```bash
+scp -i <key> Server/.env      ec2-user@<host>:~/bookshelf/Server/.env
+scp -i <key> deploy/desec.env ec2-user@<host>:~/bookshelf/deploy/desec.env
+ssh -i <key> ec2-user@<host> 'chmod 600 ~/bookshelf/Server/.env ~/bookshelf/deploy/desec.env'
+```
+
+Delete `~/bookshelf/deploy/desec.env` once `install.sh` has copied it to `/etc/bookshelf/`
+— the token belongs in one place, not two.
+
+### Install
+
 ```bash
 sudo ./deploy/install.sh
 sudo vi /etc/bookshelf/desec.env       # DESEC_DOMAIN, DESEC_TOKEN

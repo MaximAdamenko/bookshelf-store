@@ -24,7 +24,10 @@ fi
 install -m 644 "$here/bookshelf-ddns.service" "$here/bookshelf-ddns.timer" \
   /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable bookshelf-ddns.service bookshelf-ddns.timer
+systemctl enable bookshelf-ddns.service
+# --now matters: enable alone only writes the boot symlink, so the 5-minute
+# refresh stays dead until the next reboot. Found on the first live install.
+systemctl enable --now bookshelf-ddns.timer
 
 cat <<'EOF'
 
