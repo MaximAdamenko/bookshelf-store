@@ -218,10 +218,71 @@ Inbound `80` and `443` from `0.0.0.0/0`, `22` from your address only. Outbound `
 must be open — the updater talks to `update.dedyn.io`. IMDS is link-local and needs no
 rule.
 
-## Next: TLS
+## TLS
 
-With a resolving hostname the remaining blocker from session 12 is gone. Certificates go
-through HTTP-01 via webroot (port 80 is already open and nginx is already the entry
-point), so this token stays scoped to A/AAAA and never needs TXT write. A wildcard
-certificate would need DNS-01 and a second scoped token — a new token, not a widening of
-this one.
+Certificates go through HTTP-01 via webroot (port 80 is already open and nginx is already
+the entry point), so the deSEC token stays scoped to A/AAAA and never needs TXT write. A
+wildcard certificate would need DNS-01 and a second scoped token — a new token, not a
+widening of this one.
+
+### The bootstrap deadlock, and the one manual step it costs
+
+nginx refuses to start without a certificate file, but certbot's HTTP-01 challenge needs
+nginx already serving `:80`. `Client/docker-entrypoint.d/10-tls-bootstrap.sh` breaks that
+by writing a self-signed placeholder into `live/$DOMAIN/` when no certificate is there, so
+`docker compose up -d` works on a clean box.
+
+**The catch:** certbot refuses to write into a `live/` directory it did not create — it
+fails with `live directory exists for <domain>`. So the placeholder must be deleted
+immediately before the *first* issuance. Afterwards certbot owns the path and the
+bootstrap script's `[ ! -f ]` check never fires again.
+
+### First issuance (once per box)
+
+```sh
+cd ~/bookshelf
+docker compose up -d
+
+# 1. dry run first — Let's Encrypt allows only 5 duplicate certs per week
+docker compose run --rm --entrypoint certbot certbot certonly \
+  --webroot -w /var/www/certbot -d "$DOMAIN" \
+  --email "$EMAIL" --agree-tos --no-eff-email --dry-run
+
+# 2. clear the placeholder certbot will not overwrite
+docker compose exec -T certbot rm -rf \
+  "/etc/letsencrypt/live/$DOMAIN" \
+  "/etc/letsencrypt/archive/$DOMAIN" \
+  "/etc/letsencrypt/renewal/$DOMAIN.conf"
+
+# 3. real issuance, then load it
+docker compose run --rm --entrypoint certbot certbot certonly \
+  --webroot -w /var/www/certbot -d "$DOMAIN" \
+  --email "$EMAIL" --agree-tos --no-eff-email
+docker compose exec -T frontend nginx -s reload
+```
+
+Deleting the placeholder does not interrupt the running nginx — it holds the loaded
+certificate in memory until reload.
+
+### Renewal
+
+The `certbot` service loops `certbot renew` every 12 h; the frontend container reloads
+nginx every 6 h to pick up new files. Neither needs an operator. Verify with:
+
+```sh
+docker compose run --rm --entrypoint certbot certbot renew --webroot -w /var/www/certbot --dry-run
+```
+
+Certbot takes a lock on the shared `/etc/letsencrypt` volume, so a manual run while
+another is in flight fails with `Another instance of Certbot is already running`. Wait for
+the first to finish rather than forcing it.
+
+### Production flip
+
+`Server/.env` on the instance carries `ENV=production` and
+`CORS_ORIGINS=https://<domain>`. These land together — `config.py` refuses to boot in
+production without an `https://` origin. The same flag closes `/docs` and
+`/openapi.json` and turns on the backend's HSTS header.
+
+`MAIL_BACKEND=console` is refused under `ENV=production`, so the instance must be on
+`gmail` before the flip.
