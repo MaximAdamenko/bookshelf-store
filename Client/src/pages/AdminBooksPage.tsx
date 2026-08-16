@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import type { BookPublic } from "../api/types";
 import CoverImage from "../components/CoverImage";
 import Pagination from "../components/Pagination";
+import { EmptyState, ErrorState, SkeletonList } from "../components/states";
 import { useAdminBooks, useDeleteBook, usePatchBook } from "../hooks/useAdmin";
 import { formatDate } from "../lib/dates";
 import { formatPrice } from "../lib/money";
@@ -82,17 +83,11 @@ export default function AdminBooksPage() {
       </div>
 
       {isPending ? (
-        <div className="space-y-3">
-          {Array.from({ length: 5 }, (_, i) => (
-            <div key={i} className="h-16 animate-pulse rounded-lg bg-stone-200" />
-          ))}
-        </div>
+        <SkeletonList rows={5} />
       ) : isError ? (
-        <div className="py-16 text-center text-sm text-red-700">{error.message}</div>
+        <ErrorState message={error.message} />
       ) : data.items.length === 0 ? (
-        <div className="py-16 text-center text-lg font-medium text-stone-700">
-          {q ? "No books match." : "No books yet."}
-        </div>
+        <EmptyState title={q ? "No books match." : "No books yet."} />
       ) : (
         <>
           <div className="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">

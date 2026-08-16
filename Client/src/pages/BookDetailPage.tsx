@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ApiError } from "../api/client";
 import CoverImage from "../components/CoverImage";
+import { ErrorState, SkeletonBlock } from "../components/states";
 import { useAuth } from "../context/AuthContext";
 import { useAddToCart } from "../hooks/useAddToCart";
 import { useBook } from "../hooks/useBooks";
@@ -18,15 +19,15 @@ export default function BookDetailPage() {
 
   if (!Number.isInteger(bookId)) return <NotFoundPage />;
   if (isError && error instanceof ApiError && error.status === 404) return <NotFoundPage />;
-  if (isError) return <div className="py-16 text-center text-sm text-red-700">{error.message}</div>;
+  if (isError) return <ErrorState message={error.message} />;
   if (isPending) {
     return (
       <div className="flex gap-8">
-        <div className="h-96 w-64 flex-none animate-pulse rounded-lg bg-stone-200" />
+        <SkeletonBlock className="h-96 w-64 flex-none" />
         <div className="flex-1 space-y-3 py-2">
-          <div className="h-7 w-2/3 animate-pulse rounded bg-stone-200" />
-          <div className="h-4 w-1/3 animate-pulse rounded bg-stone-200" />
-          <div className="h-24 w-full animate-pulse rounded bg-stone-200" />
+          <SkeletonBlock className="h-7 w-2/3" />
+          <SkeletonBlock className="h-4 w-1/3" />
+          <SkeletonBlock className="h-24 w-full" />
         </div>
       </div>
     );

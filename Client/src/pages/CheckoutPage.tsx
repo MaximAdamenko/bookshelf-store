@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Field, FormError, SubmitButton } from "../components/form";
+import { ErrorState, SkeletonBlock } from "../components/states";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../hooks/useCart";
 import { usePlaceOrder } from "../hooks/useOrders";
@@ -10,7 +11,7 @@ import { formatPrice } from "../lib/money";
 export default function CheckoutPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { data: cart, isPending } = useCart();
+  const { data: cart, isPending, isError, error } = useCart();
   const place = usePlaceOrder();
 
   const [form, setForm] = useState({
@@ -26,7 +27,10 @@ export default function CheckoutPage() {
   const set = (key: keyof typeof form) => (e: ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
 
-  if (isPending) return <div className="h-64 animate-pulse rounded-lg bg-stone-200" />;
+  if (isPending) return <SkeletonBlock />;
+  // Before the cart checks below: they would render "your cart is empty" for a
+  // failed request, which is a lie about server state.
+  if (isError) return <ErrorState message={error.message} />;
 
   if (!cart || cart.items.length === 0 || cart.has_unavailable_lines) {
     return (

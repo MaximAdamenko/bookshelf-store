@@ -2,6 +2,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import type { OrderStatus } from "../api/types";
 import OrderStatusChip from "../components/OrderStatusChip";
 import Pagination from "../components/Pagination";
+import { EmptyState, ErrorState, SkeletonList } from "../components/states";
 import { useOrders } from "../hooks/useOrders";
 import { formatDate } from "../lib/dates";
 import { formatPrice } from "../lib/money";
@@ -55,25 +56,21 @@ export default function OrdersPage() {
       </div>
 
       {isPending ? (
-        <div className="space-y-3">
-          {Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="h-16 animate-pulse rounded-lg bg-stone-200" />
-          ))}
-        </div>
+        <SkeletonList rows={4} />
       ) : isError ? (
-        <div className="py-16 text-center text-sm text-red-700">{error.message}</div>
+        <ErrorState message={error.message} />
       ) : data.items.length === 0 ? (
-        <div className="py-16 text-center">
-          <p className="text-lg font-medium text-stone-700">
-            {status ? `No ${status} orders.` : "No orders yet."}
-          </p>
-          <Link
-            to="/"
-            className="mt-4 inline-block rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
-          >
-            Browse the catalog
-          </Link>
-        </div>
+        <EmptyState
+          title={status ? `No ${status} orders.` : "No orders yet."}
+          action={
+            <Link
+              to="/"
+              className="inline-block rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
+            >
+              Browse the catalog
+            </Link>
+          }
+        />
       ) : (
         <>
           <div className="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">

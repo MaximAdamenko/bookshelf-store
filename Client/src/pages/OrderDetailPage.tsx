@@ -2,6 +2,7 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { FormNotice } from "../components/form";
 import OrderStatusChip from "../components/OrderStatusChip";
+import { ErrorState, SkeletonBlock } from "../components/states";
 import { useOrder } from "../hooks/useOrders";
 import { formatDate } from "../lib/dates";
 import { formatPrice } from "../lib/money";
@@ -16,8 +17,8 @@ export default function OrderDetailPage() {
 
   if (!Number.isInteger(orderId)) return <NotFoundPage />;
   if (isError && error instanceof ApiError && error.status === 404) return <NotFoundPage />;
-  if (isError) return <div className="py-16 text-center text-sm text-red-700">{error.message}</div>;
-  if (isPending) return <div className="h-64 animate-pulse rounded-lg bg-stone-200" />;
+  if (isError) return <ErrorState message={error.message} />;
+  if (isPending) return <SkeletonBlock />;
 
   const { shipping } = order;
 

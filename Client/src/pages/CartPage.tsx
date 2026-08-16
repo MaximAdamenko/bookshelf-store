@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import type { CartLine } from "../api/types";
 import CoverImage from "../components/CoverImage";
+import { EmptyState, ErrorState, SkeletonList } from "../components/states";
 import { useCart, useRemoveCartItem, useUpdateCartItem } from "../hooks/useCart";
 import { formatPrice } from "../lib/money";
 
@@ -82,28 +83,22 @@ function CartLineRow({ line }: { line: CartLine }) {
 export default function CartPage() {
   const { data: cart, isPending, isError, error } = useCart();
 
-  if (isPending) {
-    return (
-      <div className="space-y-4">
-        {Array.from({ length: 3 }, (_, i) => (
-          <div key={i} className="h-28 animate-pulse rounded-lg bg-stone-200" />
-        ))}
-      </div>
-    );
-  }
-  if (isError) return <div className="py-16 text-center text-sm text-red-700">{error.message}</div>;
+  if (isPending) return <SkeletonList rows={3} className="h-28" />;
+  if (isError) return <ErrorState message={error.message} />;
 
   if (cart.items.length === 0) {
     return (
-      <div className="py-16 text-center">
-        <p className="text-lg font-medium text-stone-700">Your cart is empty.</p>
-        <Link
-          to="/"
-          className="mt-4 inline-block rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
-        >
-          Browse the catalog
-        </Link>
-      </div>
+      <EmptyState
+        title="Your cart is empty."
+        action={
+          <Link
+            to="/"
+            className="inline-block rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
+          >
+            Browse the catalog
+          </Link>
+        }
+      />
     );
   }
 

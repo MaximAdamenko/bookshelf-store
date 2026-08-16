@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import BookCard from "../components/BookCard";
 import Pagination from "../components/Pagination";
+import { EmptyState, ErrorState, SkeletonGrid } from "../components/states";
 import { useBooks, useCategories } from "../hooks/useBooks";
 import type { BookSort } from "../api/types";
 
@@ -136,18 +137,11 @@ export default function HomePage() {
       </form>
 
       {isPending ? (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {Array.from({ length: 8 }, (_, i) => (
-            <div key={i} className="h-80 animate-pulse rounded-lg bg-stone-200" />
-          ))}
-        </div>
+        <SkeletonGrid cards={8} />
       ) : isError ? (
-        <div className="py-16 text-center text-sm text-red-700">{error.message}</div>
+        <ErrorState message={error.message} />
       ) : data.items.length === 0 ? (
-        <div className="py-16 text-center">
-          <p className="text-lg font-medium text-stone-700">No books match.</p>
-          <p className="mt-1 text-sm text-stone-500">Try clearing a filter or two.</p>
-        </div>
+        <EmptyState title="No books match." hint="Try clearing a filter or two." />
       ) : (
         <>
           <p className="mb-3 text-xs text-stone-500">

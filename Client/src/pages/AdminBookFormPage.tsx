@@ -5,6 +5,7 @@ import { ApiError } from "../api/client";
 import type { BookCreateInput, BookPublic } from "../api/types";
 import CoverImage from "../components/CoverImage";
 import { Field, FormError, TextAreaField } from "../components/form";
+import { ErrorState, SkeletonBlock } from "../components/states";
 import {
   useAdminBook,
   useCreateAuthor,
@@ -25,9 +26,8 @@ function EditLoader({ bookId }: { bookId: number }) {
   const { data, isPending, isError, error } = useAdminBook(bookId);
   if (!Number.isInteger(bookId) || bookId < 1) return <NotFoundPage />;
   if (isError && error instanceof ApiError && error.status === 404) return <NotFoundPage />;
-  if (isError) return <div className="py-16 text-center text-sm text-red-700">{error.message}</div>;
-  if (isPending)
-    return <div className="mx-auto h-96 max-w-2xl animate-pulse rounded-lg bg-stone-200" />;
+  if (isError) return <ErrorState message={error.message} />;
+  if (isPending) return <SkeletonBlock className="mx-auto h-96 max-w-2xl" />;
   return <BookForm book={data} />;
 }
 

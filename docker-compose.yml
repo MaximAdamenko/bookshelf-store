@@ -1,0 +1,37 @@
+services:
+  backend:
+    build: ./Server
+    env_file: ./Server/.env
+    volumes:
+      - uploads:/app/uploads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    # No `ports:` on purpose. --forwarded-allow-ips "*" trusts X-Forwarded-For
+    # from any caller, which is only safe while nginx is the sole way in. Publish
+    # 8000 and a client can spoof that header and defeat the rate limiter.
+
+  frontend:
+    build:
+      context: ./Client
+      args:
+        VITE_API_URL: /api
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  uploads:
