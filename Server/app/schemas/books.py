@@ -57,6 +57,11 @@ class CategoryRef(BaseModel):
     name: str
 
 
+class PublisherRef(BaseModel):
+    publisher_id: int
+    name: str
+
+
 class BookPublic(BaseModel):
     book_id: int
     title: str

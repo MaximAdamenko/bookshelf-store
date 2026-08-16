@@ -33,6 +33,11 @@ export interface CategoryRef {
   name: string;
 }
 
+export interface PublisherRef {
+  publisher_id: number;
+  name: string;
+}
+
 export interface BookPublic {
   book_id: number;
   title: string;
@@ -144,4 +149,37 @@ export interface OrderListQuery {
   status?: OrderStatus;
   limit?: number;
   offset?: number;
+}
+
+export interface BookCreateInput {
+  title: string;
+  description: string;
+  price_cents: number;
+  quantity: number;
+  author_ids: number[];
+  category_ids: number[];
+  publisher_id?: number | null;
+}
+
+export interface BookPatchInput {
+  title?: string;
+  description?: string;
+  price_cents?: number;
+  quantity?: number;
+  is_active?: boolean;
+  author_ids?: number[];
+  category_ids?: number[];
+  publisher_id?: number | null;
+}
+
+export type AdminOrderTarget = Exclude<OrderStatus, "pending">;
+
+export interface AdminOrderSummary extends OrderSummary {
+  user_id: number;
+  email: string;
+}
+
+export interface AdminOrderListResponse {
+  items: AdminOrderSummary[];
+  total: number;
 }

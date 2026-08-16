@@ -1,6 +1,7 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import Layout from "./components/Layout";
 import { AdminRoute, ProtectedRoute } from "./components/ProtectedRoute";
+import AdminBookFormPage from "./pages/AdminBookFormPage";
 import AdminBooksPage from "./pages/AdminBooksPage";
 import AdminOrdersPage from "./pages/AdminOrdersPage";
 import BookDetailPage from "./pages/BookDetailPage";
@@ -38,6 +39,8 @@ const router = createBrowserRouter([
         element: <AdminRoute />,
         children: [
           { path: "/admin/books", element: <AdminBooksPage /> },
+          { path: "/admin/books/new", element: <AdminBookFormPage /> },
+          { path: "/admin/books/:id/edit", element: <AdminBookFormPage /> },
           { path: "/admin/orders", element: <AdminOrdersPage /> },
         ],
       },

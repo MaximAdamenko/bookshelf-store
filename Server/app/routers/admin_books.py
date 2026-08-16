@@ -36,6 +36,14 @@ def list_books_admin(
     return BookListResponse(items=items, total=total)
 
 
+@router.get("/{book_id}", response_model=BookPublic)
+def get_book_admin(book_id: int, conn: Annotated[Connection, Depends(db_read)]):
+    book = book_dao.get_by_id(conn, book_id, include_inactive=True)
+    if book is None:
+        raise _not_found
+    return book
+
+
 @router.post("", response_model=BookPublic, status_code=status.HTTP_201_CREATED)
 def create_book(payload: BookCreate, conn: Annotated[Connection, Depends(db_write)]):
     return book_dao.create(conn, payload)

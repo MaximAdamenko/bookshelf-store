@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, ReactNode } from "react";
+import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from "react";
 
 export function AuthCard({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -22,6 +22,28 @@ export function Field({ label, hint, id, ...rest }: FieldProps) {
         {label}
       </label>
       <input
+        id={inputId}
+        {...rest}
+        className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none disabled:bg-stone-100"
+      />
+      {hint && <p className="mt-1 text-xs text-stone-500">{hint}</p>}
+    </div>
+  );
+}
+
+interface TextAreaFieldProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+  label: string;
+  hint?: string;
+}
+
+export function TextAreaField({ label, hint, id, ...rest }: TextAreaFieldProps) {
+  const inputId = id ?? rest.name;
+  return (
+    <div>
+      <label htmlFor={inputId} className="block text-sm font-medium text-stone-700">
+        {label}
+      </label>
+      <textarea
         id={inputId}
         {...rest}
         className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none disabled:bg-stone-100"

@@ -36,6 +36,15 @@ function normalizeDetail(status: number, body: unknown): string {
   return `Request failed (${status})`;
 }
 
+export function toQueryString(query: object): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== "" && value !== false) params.set(key, String(value));
+  }
+  const qs = params.toString();
+  return qs ? `?${qs}` : "";
+}
+
 interface RequestOptions {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
@@ -46,8 +55,10 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
   const token = tokenStore.get();
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  let body: string | undefined;
-  if (options.body !== undefined) {
+  let body: BodyInit | undefined;
+  if (options.body instanceof FormData) {
+    body = options.body; // browser sets the multipart boundary
+  } else if (options.body !== undefined) {
     headers["Content-Type"] = "application/json";
     body = JSON.stringify(options.body);
   }

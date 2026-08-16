@@ -295,3 +295,18 @@ def list_categories(conn: Connection) -> list[dict]:
     with conn.cursor() as cur:
         cur.execute("SELECT category_id, name FROM categories ORDER BY name")
         return cur.fetchall()
+
+
+def list_authors(conn: Connection) -> list[dict]:
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT author_id, first_name || ' ' || last_name AS name "
+            "FROM authors ORDER BY last_name, first_name"
+        )
+        return cur.fetchall()
+
+
+def list_publishers(conn: Connection) -> list[dict]:
+    with conn.cursor() as cur:
+        cur.execute("SELECT publisher_id, name FROM publishers ORDER BY name")
+        return cur.fetchall()

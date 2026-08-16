@@ -7,7 +7,14 @@ from psycopg import Connection
 from app.core.config import get_settings
 from app.core.db import db_read
 from app.dao import book_dao
-from app.schemas.books import BookListResponse, BookPublic, BookSearchParams, CategoryRef
+from app.schemas.books import (
+    AuthorRef,
+    BookListResponse,
+    BookPublic,
+    BookSearchParams,
+    CategoryRef,
+    PublisherRef,
+)
 from app.services.storage import LocalDiskStorage
 
 router = APIRouter(prefix="/books", tags=["catalog"])
@@ -55,3 +62,16 @@ categories_router = APIRouter(prefix="/categories", tags=["catalog"])
 @categories_router.get("", response_model=list[CategoryRef])
 def list_categories(conn: Annotated[Connection, Depends(db_read)]):
     return book_dao.list_categories(conn)
+
+
+refs_router = APIRouter(tags=["catalog"])
+
+
+@refs_router.get("/authors", response_model=list[AuthorRef])
+def list_authors(conn: Annotated[Connection, Depends(db_read)]):
+    return book_dao.list_authors(conn)
+
+
+@refs_router.get("/publishers", response_model=list[PublisherRef])
+def list_publishers(conn: Annotated[Connection, Depends(db_read)]):
+    return book_dao.list_publishers(conn)

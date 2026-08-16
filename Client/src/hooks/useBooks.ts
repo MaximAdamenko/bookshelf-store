@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { fetchBook, fetchBooks, fetchCategories } from "../api/books";
+import { fetchAuthors, fetchBook, fetchBooks, fetchCategories, fetchPublishers } from "../api/books";
 import type { BookSearchQuery } from "../api/types";
 
 export function useBooks(query: BookSearchQuery) {
@@ -24,4 +24,12 @@ export function useCategories() {
     queryFn: fetchCategories,
     staleTime: 5 * 60_000,
   });
+}
+
+export function useAuthors() {
+  return useQuery({ queryKey: ["authors"], queryFn: fetchAuthors, staleTime: 5 * 60_000 });
+}
+
+export function usePublishers() {
+  return useQuery({ queryKey: ["publishers"], queryFn: fetchPublishers, staleTime: 5 * 60_000 });
 }
