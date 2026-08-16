@@ -1,0 +1,13 @@
+[Unit]
+Description=Refresh the deSEC record every 5 minutes
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=5min
+# deSEC allows 2 updates per 2 min per domain. The jitter matters less for one
+# box than for a fleet rebooting together, but costs nothing.
+RandomizedDelaySec=30s
+Unit=bookshelf-ddns.service
+
+[Install]
+WantedBy=timers.target

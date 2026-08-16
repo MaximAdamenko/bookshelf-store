@@ -1,0 +1,31 @@
+[Unit]
+Description=Publish this instance's public IPv4 to deSEC
+Documentation=https://desec.readthedocs.io/en/latest/dyndns/update-api.html
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=bookshelf-ddns
+StateDirectory=bookshelf-ddns
+ExecStart=/usr/local/bin/desec-update.sh
+
+# This unit reads one secret and makes one outbound HTTPS call. Everything else
+# is taken away from it.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

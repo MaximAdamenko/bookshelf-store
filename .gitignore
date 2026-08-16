@@ -2,6 +2,10 @@
 .env
 .env.*
 !.env.example
+# `.env` and `.env.*` do not match deploy/desec.env. This does, and leaves the
+# committed desec.env.example alone.
+*.env
+!*.env.example
 *.pem
 *.key
 docs/
