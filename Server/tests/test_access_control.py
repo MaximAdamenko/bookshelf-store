@@ -92,3 +92,67 @@ def test_inactive_book_hidden_from_public_but_visible_to_admin(client, admin, ma
     visible = client.get(f"/admin/books/{hidden['book_id']}", headers=admin["auth"])
     assert visible.status_code == 200
     assert visible.json()["is_active"] is False
+
+
+def test_hard_delete_is_admin_only(client, customer, book):
+    target = f"/admin/books/{book['book_id']}/permanent"
+    assert client.delete(target, headers=customer["auth"]).status_code == 404
+    assert client.delete(target).status_code == 401
+    # refused twice, and the book is still there
+    assert client.get(f"/books/{book['book_id']}").status_code == 200
+
+
+def test_hard_delete_removes_the_book_and_cascades_cart_lines(client, admin, customer, book, db):
+    client.post(
+        "/cart/items",
+        json={"book_id": book["book_id"], "quantity": 1},
+        headers=customer["auth"],
+    )
+    assert client.get("/cart", headers=customer["auth"]).json()["item_count"] == 1
+
+    gone = client.delete(f"/admin/books/{book['book_id']}/permanent", headers=admin["auth"])
+    assert gone.status_code == 204
+    assert client.delete(
+        f"/admin/books/{book['book_id']}/permanent", headers=admin["auth"]
+    ).status_code == 404
+
+    with db.cursor() as cur:
+        cur.execute("SELECT 1 FROM books WHERE book_id = %s", (book["book_id"],))
+        assert cur.fetchone() is None
+        cur.execute("SELECT 1 FROM cart_items WHERE book_id = %s", (book["book_id"],))
+        assert cur.fetchone() is None
+        cur.execute("SELECT 1 FROM book_author WHERE book_id = %s", (book["book_id"],))
+        assert cur.fetchone() is None
+    assert client.get("/cart", headers=customer["auth"]).json()["item_count"] == 0
+
+
+def test_hard_delete_preserves_order_history(client, admin, customer, make_book, db):
+    doomed = make_book(price_cents=4321, quantity=3)
+    client.post(
+        "/cart/items",
+        json={"book_id": doomed["book_id"], "quantity": 2},
+        headers=customer["auth"],
+    )
+    order_id = client.post("/orders", json=SHIPPING, headers=customer["auth"]).json()["order_id"]
+
+    assert client.delete(
+        f"/admin/books/{doomed['book_id']}/permanent", headers=admin["auth"]
+    ).status_code == 204
+
+    # DESIGN.md 4.2 — order_items.book_id is ON DELETE SET NULL and the line
+    # carries its own snapshot, so deleting the catalog row cannot rewrite history.
+    with db.cursor() as cur:
+        cur.execute(
+            "SELECT book_id, title_snapshot, unit_price_cents, quantity, total_price_cents"
+            " FROM order_items WHERE order_id = %s",
+            (order_id,),
+        )
+        line = cur.fetchone()
+    assert line["book_id"] is None
+    assert line["title_snapshot"] == doomed["title"]
+    assert line["unit_price_cents"] == 4321
+    assert line["total_price_cents"] == 8642
+
+    detail = client.get(f"/orders/{order_id}", headers=customer["auth"])
+    assert detail.status_code == 200
+    assert detail.json()["amount_cents"] == 8642

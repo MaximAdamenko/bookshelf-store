@@ -219,6 +219,16 @@ def soft_delete(conn: Connection, book_id: int) -> bool:
         return cur.fetchone() is not None
 
 
+def hard_delete(conn: Connection, book_id: int) -> tuple[bool, str | None]:
+    with conn.cursor() as cur:
+        cur.execute(
+            "DELETE FROM books WHERE book_id = %s RETURNING cover_path",
+            (book_id,),
+        )
+        row = cur.fetchone()
+        return (row is not None, row["cover_path"] if row else None)
+
+
 def set_cover(conn: Connection, book_id: int, cover_path: str) -> str | None:
     """Returns the previous cover_path so the caller can delete the orphaned file."""
     with conn.cursor() as cur:

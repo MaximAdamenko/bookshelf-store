@@ -6,6 +6,7 @@ import {
   createAuthor,
   createBook,
   deleteBook,
+  hardDeleteBook,
   patchBook,
   setOrderStatus,
   uploadCover,
@@ -50,6 +51,10 @@ export function usePatchBook() {
 
 export function useDeleteBook() {
   return useMutation({ mutationFn: deleteBook, onSuccess: useInvalidateBooks() });
+}
+
+export function useHardDeleteBook() {
+  return useMutation({ mutationFn: hardDeleteBook, onSuccess: useInvalidateBooks() });
 }
 
 export function useUploadCover() {

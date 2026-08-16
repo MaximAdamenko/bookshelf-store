@@ -4,7 +4,7 @@ import type { BookPublic } from "../api/types";
 import CoverImage from "../components/CoverImage";
 import Pagination from "../components/Pagination";
 import { EmptyState, ErrorState, SkeletonList } from "../components/states";
-import { useAdminBooks, useDeleteBook, usePatchBook } from "../hooks/useAdmin";
+import { useAdminBooks, useDeleteBook, useHardDeleteBook, usePatchBook } from "../hooks/useAdmin";
 import { formatDate } from "../lib/dates";
 import { formatPrice } from "../lib/money";
 
@@ -23,8 +23,10 @@ export default function AdminBooksPage() {
     offset: (page - 1) * PAGE_SIZE,
   });
   const del = useDeleteBook();
+  const hardDel = useHardDeleteBook();
   const patch = usePatchBook();
   const [rowError, setRowError] = useState<{ id: number; message: string } | null>(null);
+  const [confirmId, setConfirmId] = useState<number | null>(null);
 
   const update = (changes: Record<string, string | null>) => {
     const next = new URLSearchParams(searchParams);
@@ -43,8 +45,17 @@ export default function AdminBooksPage() {
     else patch.mutate({ bookId: book.book_id, input: { is_active: true } }, { onError });
   };
 
+  const remove = (book: BookPublic) => {
+    setRowError(null);
+    hardDel.mutate(book.book_id, {
+      onSuccess: () => setConfirmId(null),
+      onError: (err: Error) => setRowError({ id: book.book_id, message: err.message }),
+    });
+  };
+
   const rowBusy = (id: number) =>
     (del.isPending && del.variables === id) ||
+    (hardDel.isPending && hardDel.variables === id) ||
     (patch.isPending && patch.variables?.bookId === id);
 
   const pageCount = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
@@ -138,7 +149,39 @@ export default function AdminBooksPage() {
                   >
                     {book.is_active ? "Deactivate" : "Activate"}
                   </button>
+                  <button
+                    onClick={() => {
+                      setRowError(null);
+                      setConfirmId(confirmId === book.book_id ? null : book.book_id);
+                    }}
+                    disabled={rowBusy(book.book_id)}
+                    className="rounded-md border border-red-300 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    Delete
+                  </button>
                 </div>
+                {confirmId === book.book_id && (
+                  <div className="flex flex-wrap items-center gap-3 border-t border-red-200 bg-red-50 px-4 py-3">
+                    <p className="flex-1 text-xs text-red-800">
+                      Permanently delete <span className="font-medium">{book.title}</span>? It
+                      disappears from every customer's cart and this cannot be undone. Past
+                      orders keep their own snapshot and are unaffected.
+                    </p>
+                    <button
+                      onClick={() => setConfirmId(null)}
+                      className="rounded-md border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-100"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => remove(book)}
+                      disabled={rowBusy(book.book_id)}
+                      className="rounded-md bg-red-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                    >
+                      Delete permanently
+                    </button>
+                  </div>
+                )}
                 {rowError?.id === book.book_id && (
                   <p className="px-4 pb-2 text-xs text-red-700">{rowError.message}</p>
                 )}

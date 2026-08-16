@@ -5,6 +5,11 @@ services:
     volumes:
       - uploads:/app/uploads
     restart: unless-stopped
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: ["CMD", "python", "-c",
              "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
@@ -21,17 +26,40 @@ services:
       context: ./Client
       args:
         VITE_API_URL: /api
+    environment:
+      DOMAIN: ${DOMAIN:-mybookshelfassignment.dedyn.io}
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - certs:/etc/letsencrypt
+      - acme:/var/www/certbot
     depends_on:
       backend:
         condition: service_healthy
     restart: unless-stopped
+    logging: *logging
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      test: ["CMD", "wget", "-q", "--spider", "--no-check-certificate", "https://127.0.0.1/"]
       interval: 30s
       timeout: 3s
       retries: 3
 
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - certs:/etc/letsencrypt
+      - acme:/var/www/certbot
+    entrypoint: >
+      sh -c "trap exit TERM;
+      while :; do
+        certbot renew --webroot -w /var/www/certbot --quiet;
+        sleep 12h & wait $${!};
+      done"
+    restart: unless-stopped
+    logging: *logging
+
 volumes:
   uploads:
+  certs:
+  acme:

@@ -1,6 +1,14 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
 from psycopg import Connection
 
 from app.core.config import get_settings
@@ -63,6 +71,23 @@ def patch_book(
 def delete_book(book_id: int, conn: Annotated[Connection, Depends(db_write)]):
     if not book_dao.soft_delete(conn, book_id):
         raise _not_found
+
+
+@router.delete("/{book_id}/permanent", status_code=status.HTTP_204_NO_CONTENT)
+def hard_delete_book(
+    book_id: int,
+    background: BackgroundTasks,
+    conn: Annotated[Connection, Depends(db_write)],
+):
+    found, cover = book_dao.hard_delete(conn, book_id)
+    if not found:
+        raise _not_found
+    if cover:
+        # db_write commits after this returns, so the unlink is deferred: a
+        # rolled-back DELETE must not leave a live row pointing at a gone file.
+        background.add_task(
+            LocalDiskStorage(get_settings().upload_path).delete, cover
+        )
 
 
 @router.post("/{book_id}/cover", response_model=BookPublic)

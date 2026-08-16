@@ -27,6 +27,9 @@ export const patchBook = (bookId: number, input: BookPatchInput) =>
 export const deleteBook = (bookId: number) =>
   api<void>(`/admin/books/${bookId}`, { method: "DELETE" });
 
+export const hardDeleteBook = (bookId: number) =>
+  api<void>(`/admin/books/${bookId}/permanent`, { method: "DELETE" });
+
 export const uploadCover = (bookId: number, file: File) => {
   const form = new FormData();
   form.append("file", file);
